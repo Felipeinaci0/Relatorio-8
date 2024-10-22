@@ -23,7 +23,7 @@ game_db.create_match("101", ["1", "2"], "Lucas 3 - 2 Ricardo")
 game_db.create_match("102", ["2", "3"], "Ricardo 4 - 1 Maria")
 
 # Obter informações de um jogador
-player = game_db.get_player("1")
+player = game_db.get_player("2")
 print("Player:", player)
 
 # Obter informações de uma partida
