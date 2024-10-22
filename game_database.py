@@ -1,108 +1,65 @@
 class GameDatabase:
-    def __init__(self, db):
-        self.db = db
+    def __init__(self, database):
+        self.db = database
 
     def create_player(self, player_id, name):
-        with self.db.driver.session() as session:
-            session.write_transaction(self._create_player, player_id, name)
-
-    @staticmethod
-    def _create_player(tx, player_id, name):
-        query = (
-            "CREATE (p:Player {id: $player_id, name: $name}) "
-            "RETURN p"
-        )
-        tx.run(query, player_id=player_id, name=name)
+        query = "CREATE (:Player {id: $player_id, name: $name})"
+        parameters = {"player_id": player_id, "name": name}
+        self.db.execute_query(query, parameters)
 
     def update_player(self, player_id, name):
-        with self.db.driver.session() as session:
-            session.write_transaction(self._update_player, player_id, name)
-
-    @staticmethod
-    def _update_player(tx, player_id, name):
-        query = (
-            "MATCH (p:Player {id: $player_id}) "
-            "SET p.name = $name "
-            "RETURN p"
-        )
-        tx.run(query, player_id=player_id, name=name)
+        query = "MATCH (p:Player {id: $player_id}) SET p.name = $name"
+        parameters = {"player_id": player_id, "name": name}
+        self.db.execute_query(query, parameters)
 
     def delete_player(self, player_id):
-        with self.db.driver.session() as session:
-            session.write_transaction(self._delete_player, player_id)
-
-    @staticmethod
-    def _delete_player(tx, player_id):
-        query = (
-            "MATCH (p:Player {id: $player_id}) "
-            "DETACH DELETE p"
-        )
-        tx.run(query, player_id=player_id)
+        query = "MATCH (p:Player {id: $player_id}) DETACH DELETE p"
+        parameters = {"player_id": player_id}
+        self.db.execute_query(query, parameters)
 
     def create_match(self, match_id, players, result):
-        with self.db.driver.session() as session:
-            session.write_transaction(self._create_match, match_id, players, result)
-
-    @staticmethod
-    def _create_match(tx, match_id, players, result):
         query = (
             "CREATE (m:Match {id: $match_id, result: $result}) "
             "WITH m "
-            "UNWIND $players as player_id "
+            "UNWIND $players AS player_id "
             "MATCH (p:Player {id: player_id}) "
-            "CREATE (p)-[:PLAYED_IN]->(m) "
-            "RETURN m"
+            "CREATE (p)-[:PLAYED_IN]->(m)"
         )
-        tx.run(query, match_id=match_id, players=players, result=result)
+        parameters = {"match_id": match_id, "players": players, "result": result}
+        self.db.execute_query(query, parameters)
+
+    def get_players(self):
+        query = "MATCH (p:Player) RETURN p.id AS id, p.name AS name"
+        results = self.db.execute_query(query)
+        return [{"id": result["id"], "name": result["name"]} for result in results]
 
     def get_player(self, player_id):
-        with self.db.driver.session() as session:
-            result = session.read_transaction(self._get_player, player_id)
-            return result.single()
+        query = "MATCH (p:Player {id: $player_id}) RETURN p.id AS id, p.name AS name"
+        parameters = {"player_id": player_id}
+        results = self.db.execute_query(query, parameters)
+        return results[0] if results else None
 
-    @staticmethod
-    def _get_player(tx, player_id):
-        query = (
-            "MATCH (p:Player {id: $player_id}) "
-            "RETURN p"
-        )
-        return tx.run(query, player_id=player_id)
+    def get_matches(self):
+        query = "MATCH (m:Match) RETURN m.id AS id, m.result AS result"
+        results = self.db.execute_query(query)
+        return [{"id": result["id"], "result": result["result"]} for result in results]
 
     def get_match(self, match_id):
-        with self.db.driver.session() as session:
-            result = session.read_transaction(self._get_match, match_id)
-            return result.single()
-
-    @staticmethod
-    def _get_match(tx, match_id):
-        query = (
-            "MATCH (m:Match {id: $match_id}) "
-            "RETURN m"
-        )
-        return tx.run(query, match_id=match_id)
+        query = "MATCH (m:Match {id: $match_id}) RETURN m.id AS id, m.result AS result"
+        parameters = {"match_id": match_id}
+        results = self.db.execute_query(query, parameters)
+        return results[0] if results else None
 
     def get_player_matches(self, player_id):
-        with self.db.driver.session() as session:
-            result = session.read_transaction(self._get_player_matches, player_id)
-            return [record["m"] for record in result]
-
-    @staticmethod
-    def _get_player_matches(tx, player_id):
         query = (
             "MATCH (p:Player {id: $player_id})-[:PLAYED_IN]->(m:Match) "
-            "RETURN m"
+            "RETURN m.id AS id, m.result AS result"
         )
-        return tx.run(query, player_id=player_id)
+        parameters = {"player_id": player_id}
+        results = self.db.execute_query(query, parameters)
+        return [{"id": result["id"], "result": result["result"]} for result in results]
 
-    def get_all_players(self):
-        with self.db.driver.session() as session:
-            result = session.read_transaction(self._get_all_players)
-            return [record["p"] for record in result]
-
-    @staticmethod
-    def _get_all_players(tx):
-        query = (
-            "MATCH (p:Player) "
-            "RETURN p"
-        )
-        return tx.run(query)
+    def delete_match(self, match_id):
+        query = "MATCH (m:Match {id: $match_id}) DETACH DELETE m"
+        parameters = {"match_id": match_id}
+        self.db.execute_query(query, parameters)
